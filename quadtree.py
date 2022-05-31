@@ -1,151 +1,135 @@
 import numpy as np
 import math
 
-class Point:
+class Ponto:
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
-    def distancetocenter(self, center):
-        return math.sqrt((center.x-self.x)**2 + (center.y-self.y)**2)
+    def distanciadocentro(self, centro):
+        return math.sqrt((centro.x-self.x)**2 + (centro.y-self.y)**2)
 
-class Rectangle:
-    def __init__(self, center, width, height):
-        self.center= center
-        self.width = width
-        self.height = height
-        self.west = center.x - width
-        self.east = center.x + width
-        self.north = center.y - height
-        self.south = center.y + height
+class Quadro:
+    def __init__(self, centro, largura, altura):
+        self.centro= centro
+        self.largura = largura
+        self.altura = altura
+        self.esquerda = centro.x - largura
+        self.direita = centro.x + largura
+        self.topo = centro.y - altura
+        self.base = centro.y + altura
 
-    def containspoint(self, point):
-        return (self.west <= point.x < self.east and
-               self.north <= point.y <self.south)
+    def contemPonto(self, Ponto):
+        return (self.esquerda <= Ponto.x < self.direita and
+               self.topo <= Ponto.y <self.base)
     
-    def intersects(self, range):
-        return not (range.west > self.east or
-                    range.east < self.west or
-                    range.north > self.south or
-                    range.south < self.north)
+    def intersecta(self, area):
+        return not (area.esquerda > self.direita or
+                    area.direita < self.esquerda or
+                    area.topo > self.base or
+                    area.base < self.topo)
 
-    def draw(self, ax, c='k', lw=1, **kwargs):
-        x1, y1 =self.west, self.north
-        x2, y2 =self.east, self.south
+    def desenhar(self, ax, c='k', lw=1, **kwargs):
+        x1, y1 =self.esquerda, self.topo
+        x2, y2 =self.direita, self.base
         ax.plot([x1,x2,x2,x1,x1], [y1,y1,y2,y2,y1], c=c, lw=lw, **kwargs)
 
 
 class Quadtree:
-    def __init__(self, boundary, capacity =1):
-        self.boundary = boundary
-        self.capacity = capacity
-        self.points = []
-        self.divided = False
+    def __init__(self, dimensoes, capacidade =1):
+        self.dimensoes = dimensoes
+        self.capacidade = capacidade
+        self.pontos = []
+        self.dividido = False
 
-    def insert(self, point):
-        # caso o ponto esteja no alcance da quadtree atual
-        if not self.boundary.containspoint(point):
+    def inserir(self, Ponto):
+        # caso o Ponto esteja no alcance da quadtree atual
+        if not self.dimensoes.contemPonto(Ponto):
             return False
     
-        #se não tiver alcançado a capacidade
-        if len(self.points) < self.capacity:
-            self.points.append(point)
+        #bd não tiver alcançado a capacidade
+        if len(self.pontos) < self.capacidade:
+            self.pontos.append(Ponto)
             return True
 
-        if not self.divided:
-            self.divide()
+        if not self.dividido:
+            self.dividir()
         
-        if self.nw.insert(point):
+        if self.te.inserir(Ponto):
             return True
-        elif self.ne.insert(point):
+        elif self.td.inserir(Ponto):
             return True
-        elif self.sw.insert(point):
+        elif self.be.inserir(Ponto):
             return True
-        elif self.se.insert(point):
+        elif self.bd.inserir(Ponto):
             return True
 
         return False
 
-    def queryrange(self, range):
-        found_points = []
+    def area_de_busca(self, area):
+        pontos_encontrados = []
 
-        if not self.boundary.intersects(range):
+        if not self.dimensoes.intersecta(area):
             return []
 
-        for point in self.points:
-            if range.containspoint(point):
-                found_points.append(point)
+        for Ponto in self.pontos:
+            if area.contemPonto(Ponto):
+                pontos_encontrados.append(Ponto)
 
-        if self.divided:
-            found_points.extend(self.nw.queryrange(range))
-            found_points.extend(self.ne.queryrange(range))
-            found_points.extend(self.sw.queryrange(range))
-            found_points.extend(self.se.queryrange(range))
+        if self.dividido:
+            pontos_encontrados.extend(self.te.area_de_busca(area))
+            pontos_encontrados.extend(self.td.area_de_busca(area))
+            pontos_encontrados.extend(self.be.area_de_busca(area))
+            pontos_encontrados.extend(self.bd.area_de_busca(area))
 
-        return found_points
+        return pontos_encontrados
 
-    def queryradius(self, range, center):
-        found_points = []
+    
 
-        if not self.boundary.intersects(range):
-            return []
+    def dividir(self):
+        centro_x = self.dimensoes.centro.x
+        centro_y = self.dimensoes.centro.y
+        new_largura = self.dimensoes.largura / 2
+        new_altura = self.dimensoes.altura / 2
 
-        for point in self.points:
-            if range.containspoint(point) and point.distancetocenter(center) <= range.width:
-                found_points.append(point)
+        te = Quadro(Ponto(centro_x - new_largura, centro_y - new_altura), new_largura, new_altura)
+        self.te = Quadtree (te)
+        for p in self.pontos:
+                if self.te.dimensoes.contemPonto(p):
+                    self.te.pontos.append(p)
 
-        if self.divided:
-            found_points.extend(self.nw.queryradius(range, center))
-            found_points.extend(self.ne.queryradius(range, center))
-            found_points.extend(self.sw.queryradius(range, center))
-            found_points.extend(self.se.queryradius(range, center))
+        td = Quadro(Ponto(centro_x + new_largura, centro_y - new_altura), new_largura, new_altura)
+        self.td = Quadtree (td)
+        for p in self.pontos:
+            if self.td.dimensoes.contemPonto(p):
+                self.td.pontos.append(p)
 
-            return found_points
+        be = Quadro(Ponto(centro_x - new_largura, centro_y + new_altura), new_largura, new_altura)
+        self.be = Quadtree (be)
+        for p in self.pontos:
+            if self.be.dimensoes.contemPonto(p):
+                self.be.pontos.append(p)
 
-    def divide(self):
-        center_x = self.boundary.center.x
-        center_y = self.boundary.center.y
-        new_width = self.boundary.width / 2
-        new_height = self.boundary.height / 2
+        bd = Quadro(Ponto(centro_x + new_largura, centro_y + new_altura), new_largura, new_altura)
+        self.bd = Quadtree (bd)
+        for p in self.pontos:
+            if self.bd.dimensoes.contemPonto(p):
+                self.bd.pontos.append(p)
 
-        nw = Rectangle(Point(center_x - new_width, center_y - new_height), new_width, new_height)
-        self.nw = Quadtree (nw)
-        for p in self.points:
-                if self.nw.boundary.containspoint(p):
-                    self.nw.points.append(p)
-
-        ne = Rectangle(Point(center_x + new_width, center_y - new_height), new_width, new_height)
-        self.ne = Quadtree (ne)
-        for p in self.points:
-            if self.ne.boundary.containspoint(p):
-                self.ne.points.append(p)
-
-        sw = Rectangle(Point(center_x - new_width, center_y + new_height), new_width, new_height)
-        self.sw = Quadtree (sw)
-        for p in self.points:
-            if self.sw.boundary.containspoint(p):
-                self.sw.points.append(p)
-
-        se = Rectangle(Point(center_x + new_width, center_y + new_height), new_width, new_height)
-        self.se = Quadtree (se)
-        for p in self.points:
-            if self.se.boundary.containspoint(p):
-                self.se.points.append(p)
-
-        self.divided = True
+        self.dividido = True
 
     def __len__(self):
-        count = len(self.points)
-        if self.divided:
-            count += len(self.nw) + len(self.ne) + len(self.sw) + len(self.se)
+        count = len(self.pontos)
+        if self.dividido:
+            count += len(self.te) + len(self.td) + len(self.be) + len(self.bd)
 
         return count
 
-    def draw (self, ax):
-        self.boundary.draw(ax)
+    def desenhar (self, ax):
+        self.dimensoes.desenhar(ax)
 
-        if self.divided:
-            self.nw.draw(ax)
-            self.ne.draw(ax)
-            self.se.draw(ax)
-            self.sw.draw(ax)
+        if self.dividido:
+            self.te.desenhar(ax)
+            self.td.desenhar(ax)
+            self.bd.desenhar(ax)
+            self.be.desenhar(ax)
